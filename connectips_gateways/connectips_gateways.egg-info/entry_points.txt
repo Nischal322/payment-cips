@@ -1,0 +1,2 @@
+[console_scripts]
+connectips-gateway = connectips_gateways.manage:main
