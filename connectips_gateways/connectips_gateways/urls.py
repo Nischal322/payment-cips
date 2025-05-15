@@ -10,14 +10,14 @@ from .views import (
 )
 
 router = DefaultRouter()
-router.register(r'cipspayment', ConnectIpsPaymentViewSet)
+router.register(r'cips', ConnectIpsPaymentViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('success/', ConnectIpsSuccessUrl.as_view()),
-    path('failure/', ConnectIpsFailureUrl.as_view()),
-    path('Notification/', ConnectIpsTokenView.as_view(), name='connectips_redirect'),
-    path('upload/', UploadCreditorPfxView.as_view(), name='upload_creditor')
+    path('cips/success/', ConnectIpsSuccessUrl.as_view()),
+    path('cips/failure/', ConnectIpsFailureUrl.as_view()),
+    path('cips/Notification/', ConnectIpsTokenView.as_view(), name='connectips_redirect'),
+    path('cips/upload/', UploadCreditorPfxView.as_view(), name='upload_creditor')
 ]
 
 
