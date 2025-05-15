@@ -28,9 +28,6 @@ class ConnectIpsPaymentViewSet(viewsets.ModelViewSet):
     serializer_class = ConnectIpsPaymentSerializer
     http_method_names = ['get', 'post', 'put', 'patch']
 
-    def get_queryset(self):
-        tenant_header = self.request.headers.get('Tenant-Header', self.request.headers.get('tenant_header'))
-        return CipsPayment.objects.filter(tenant_header=tenant_header)
 
     def list(self, request):
         payments = self.get_queryset()
