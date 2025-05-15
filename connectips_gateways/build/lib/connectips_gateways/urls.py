@@ -17,7 +17,7 @@ urlpatterns = [
     path('success/', ConnectIpsSuccessUrl.as_view()),
     path('failure/', ConnectIpsFailureUrl.as_view()),
     path('Notification/', ConnectIpsTokenView.as_view(), name='connectips_redirect'),
-    path('upload/', UploadCreditorPfxView.as_view(), name='connectips_redirect')
+    path('upload/', UploadCreditorPfxView.as_view(), name='upload_creditor')
 ]
 
 
