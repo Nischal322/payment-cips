@@ -13,8 +13,6 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.serialization import pkcs12
 
 
-# ----------------- ConnectIPS Config Management ------------------
-
 class ConnectIpsPaymentViewSet(viewsets.ModelViewSet):
     queryset = CipsPayment.objects.all()
     serializer_class = ConnectIpsPaymentSerializer
@@ -28,7 +26,7 @@ class ConnectIpsPaymentViewSet(viewsets.ModelViewSet):
     def create(self, request):
         if CipsPayment.objects.exists():
             return Response(
-                {"status": 400, "message": "CipsPayment already configured."},
+                {"message": "CipsPayment already configured."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -36,7 +34,7 @@ class ConnectIpsPaymentViewSet(viewsets.ModelViewSet):
         if serializer.is_valid():
             serializer.save()
             return Response(
-                {"status": 201, "message": "Created successfully", "data": serializer.data},
+                {"message": "Created successfully", "data": serializer.data},
                 status=status.HTTP_201_CREATED
             )
         return Response({"errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
@@ -65,8 +63,6 @@ class ConnectIpsPaymentViewSet(viewsets.ModelViewSet):
             return Response({"message": "Partially updated successfully", "data": serializer.data})
         return Response({"errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
-
-# ----------------- Token Generator ------------------
 
 def generate_connectips_token(merchant_id, app_id, app_name, txn_id, txn_date,
                                txn_currency, txn_amount, reference_id, remarks,
@@ -106,34 +102,21 @@ class ConnectIpsTokenView(APIView):
             if not config:
                 return Response({"error": "ConnectIPS configuration not found"}, status=404)
 
-            pfx_path = os.path.join(settings.MEDIA_ROOT, f"CREDITOR.pfx")
+            pfx_path = os.path.join(settings.MEDIA_ROOT, "CREDITOR.pfx")
             if not os.path.exists(pfx_path):
                 return Response({"error": "PFX certificate not found"}, status=404)
 
-            params = {
-                "MERCHANTID": config.merchant_id,
-                "APPID": config.app_id,
-                "APPNAME": config.app_name,
-                "TXNID": body.get("TXNID", ""),
-                "TXNDATE": body.get("TXNDATE", ""),
-                "TXNCRNCY": body.get("TXNCRNCY", "NPR"),
-                "TXNAMT": body.get("TXNAMT", ""),
-                "REFERENCEID": body.get("REFERENCEID", ""),
-                "REMARKS": body.get("REMARKS", ""),
-                "PARTICULARS": body.get("PARTICULARS", "")
-            }
-
             token = generate_connectips_token(
-                merchant_id=params["MERCHANTID"],
-                app_id=params["APPID"],
-                app_name=params["APPNAME"],
-                txn_id=params["TXNID"],
-                txn_date=params["TXNDATE"],
-                txn_currency=params["TXNCRNCY"],
-                txn_amount=params["TXNAMT"],
-                reference_id=params["REFERENCEID"],
-                remarks=params["REMARKS"],
-                particulars=params["PARTICULARS"],
+                merchant_id=config.merchant_id,
+                app_id=config.app_id,
+                app_name=config.app_name,
+                txn_id=body.get("TXNID", ""),
+                txn_date=body.get("TXNDATE", ""),
+                txn_currency=body.get("TXNCRNCY", "NPR"),
+                txn_amount=body.get("TXNAMT", ""),
+                reference_id=body.get("REFERENCEID", ""),
+                remarks=body.get("REMARKS", ""),
+                particulars=body.get("PARTICULARS", ""),
                 pfx_path=pfx_path,
                 pfx_password=config.creditor_password
             )
@@ -141,10 +124,8 @@ class ConnectIpsTokenView(APIView):
             return Response({"TOKEN": token})
 
         except Exception as e:
-            return Response({"error": str(e)}, status=500)
+            return Response({"error": str(e)}, status=400)
 
-
-# ----------------- Upload Creditor Certificate ------------------
 
 class UploadCreditorPfxView(APIView):
     def post(self, request):
@@ -161,7 +142,7 @@ class UploadCreditorPfxView(APIView):
             if not file:
                 return Response({"error": "No file uploaded"}, status=400)
 
-            path = os.path.join(settings.MEDIA_ROOT, f"CREDITOR_{tenant_header}.pfx")
+            path = os.path.join(settings.MEDIA_ROOT, "CREDITOR.pfx")
             with open(path, 'wb') as f:
                 f.write(file.read())
 
@@ -173,8 +154,6 @@ class UploadCreditorPfxView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=500)
 
-
-# ----------------- Success and Failure Callback ------------------
 
 class BaseCallback(APIView):
     def get_transaction_details(self, request):
@@ -215,14 +194,22 @@ class BaseCallback(APIView):
                 auth=(config.app_id, config.password)
             )
 
-            return response.json() if response.ok else {
-                "error": "ConnectIPS error",
-                "status": response.status_code,
-                "body": response.text
-            }
+            if response.ok:
+                try:
+                    data = response.json()
+                    body = data.get("body", "")
+                    if isinstance(body, str) and "bad credentials" in body.lower():
+                        raise Exception("Bad credentials")
+                    return data
+                except Exception as e:
+                    raise Exception(f"Response parse error: {str(e)}")
+            else:
+                if response.status_code == 401:
+                    raise Exception("Bad credentials")
+                raise Exception(f"ConnectIPS error: {response.status_code}")
 
         except Exception as e:
-            return {"error": f"Validation failed: {str(e)}"}
+            raise Exception(f"{str(e)}")
 
 
 class ConnectIpsSuccessUrl(BaseCallback):
@@ -239,8 +226,11 @@ class ConnectIpsSuccessUrl(BaseCallback):
         if not os.path.exists(pfx_path):
             return Response({"error": "PFX file not found"}, status=404)
 
-        result = self.validate_payment(txn_id, txn_amt, config, pfx_path)
-        return Response(result)
+        try:
+            result = self.validate_payment(txn_id, txn_amt, config, pfx_path)
+            return Response({"message": "Transaction validated successfully", "data": result}, status=200)
+        except Exception as e:
+            return Response({"error": str(e)}, status=400)
 
 
 class ConnectIpsFailureUrl(BaseCallback):
@@ -257,5 +247,8 @@ class ConnectIpsFailureUrl(BaseCallback):
         if not os.path.exists(pfx_path):
             return Response({"error": "PFX file not found"}, status=404)
 
-        result = self.validate_payment(txn_id, txn_amt, config, pfx_path)
-        return Response(result)
+        try:
+            result = self.validate_payment(txn_id, txn_amt, config, pfx_path)
+            return Response({"message": "Validation attempted on failure callback", "data": result}, status=200)
+        except Exception as e:
+            return Response({"error": str(e)}, status=400)
