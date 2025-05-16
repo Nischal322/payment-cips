@@ -67,31 +67,31 @@ class ConnectIpsPaymentViewSet(viewsets.ModelViewSet):
 def generate_connectips_token(merchant_id, app_id, app_name, txn_id, txn_date,
                                txn_currency, txn_amount, reference_id, remarks,
                                particulars, pfx_path, pfx_password):
+    message = (
+        f"MERCHANTID={merchant_id},APPID={app_id},APPNAME={app_name},"
+        f"TXNID={txn_id},TXNDATE={txn_date},TXNCRNCY={txn_currency},"
+        f"TXNAMT={txn_amount},REFERENCEID={reference_id},REMARKS={remarks},"
+        f"PARTICULARS={particulars},TOKEN=TOKEN"
+    )
+
+    with open(pfx_path, 'rb') as pfx_file:
+        pfx_data = pfx_file.read()
+
     try:
-        message = (
-            f"MERCHANTID={merchant_id},APPID={app_id},APPNAME={app_name},"
-            f"TXNID={txn_id},TXNDATE={txn_date},TXNCRNCY={txn_currency},"
-            f"TXNAMT={txn_amount},REFERENCEID={reference_id},REMARKS={remarks},"
-            f"PARTICULARS={particulars},TOKEN=TOKEN"
-        )
-
-        with open(pfx_path, 'rb') as pfx_file:
-            pfx_data = pfx_file.read()
-
         private_key, _, _ = pkcs12.load_key_and_certificates(
             pfx_data, pfx_password.encode(), default_backend()
         )
+    except ValueError:
+        # This will be caught by your view
+        raise ValueError("Invalid PFX certificate or password.")
 
-        signature = private_key.sign(
-            message.encode(),
-            padding.PKCS1v15(),
-            hashes.SHA256()
-        )
+    signature = private_key.sign(
+        message.encode(),
+        padding.PKCS1v15(),
+        hashes.SHA256()
+    )
 
-        return base64.b64encode(signature).decode()
-
-    except Exception as e:
-        raise Exception(f"Token generation failed: {str(e)}")
+    return base64.b64encode(signature).decode()
 
 
 class ConnectIpsTokenView(APIView):
