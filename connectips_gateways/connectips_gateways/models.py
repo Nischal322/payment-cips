@@ -1,7 +1,6 @@
 from django.db import models
 
 class CipsPayment(models.Model):
-    tenant_header = models.CharField(max_length=255, unique=True, blank=False)
     gateway_url = models.CharField(max_length=255)
     merchant_id = models.CharField(max_length=255)
     app_id = models.CharField(max_length=255)

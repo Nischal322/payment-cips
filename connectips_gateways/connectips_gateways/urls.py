@@ -14,10 +14,10 @@ router.register(r'cips', ConnectIpsPaymentViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('cips/success/', ConnectIpsSuccessUrl.as_view()),
-    path('cips/failure/', ConnectIpsFailureUrl.as_view()),
-    path('cips/Notification/', ConnectIpsTokenView.as_view(), name='connectips_redirect'),
-    path('cips/upload/', UploadCreditorPfxView.as_view(), name='upload_creditor')
+    path('cips-payment/success/', ConnectIpsSuccessUrl.as_view()),
+    path('cips-payment/failure/', ConnectIpsFailureUrl.as_view()),
+    path('cips-payment/generate-token/', ConnectIpsTokenView.as_view()),
+    path('cips-payment/upload/', UploadCreditorPfxView.as_view())
 ]
 
 
