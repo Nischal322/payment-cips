@@ -142,9 +142,15 @@ class UploadCreditorPfxView(APIView):
             if not file:
                 return Response({"error": "No file uploaded"}, status=400)
 
+            # Validate file extension
+            if not file.name.lower().endswith('.pfx'):
+                return Response({"error": "Only .pfx files are allowed"}, status=400)
+
+
             path = os.path.join(settings.MEDIA_ROOT, "CREDITOR.pfx")
             with open(path, 'wb') as f:
-                f.write(file.read())
+                for chunk in file.chunks():
+                    f.write(chunk)
 
             config.creditor_pfx_file = path
             config.save()
@@ -153,8 +159,6 @@ class UploadCreditorPfxView(APIView):
 
         except Exception as e:
             return Response({"error": str(e)}, status=500)
-
-
 class BaseCallback(APIView):
     def get_transaction_details(self, request):
         txn_id = request.query_params.get("TXNID")
