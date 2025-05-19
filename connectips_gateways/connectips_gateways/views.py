@@ -18,6 +18,12 @@ class ConnectIpsPaymentViewSet(viewsets.ModelViewSet):
     serializer_class = ConnectIpsPaymentSerializer
     http_method_names = ['get', 'post', 'put', 'patch']
 
+    def get_serializer_context(self):
+        # Ensure the request is available in the serializer context
+        context = super().get_serializer_context()
+        context.update({"request": self.request})
+        return context
+
     def list(self, request):
         payments = self.get_queryset()
         serializer = self.get_serializer(payments, many=True)

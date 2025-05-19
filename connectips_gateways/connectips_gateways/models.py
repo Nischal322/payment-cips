@@ -12,4 +12,4 @@ class CipsPayment(models.Model):
     creditor_pfx_file = models.CharField(max_length=255, blank=True)
 
     def __str__(self):
-        return self.tenant_header
+        return f"{self.app_name} ({self.merchant_id})"
