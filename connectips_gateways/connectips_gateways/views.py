@@ -103,14 +103,21 @@ def generate_connectips_token(merchant_id, app_id, app_name, txn_id, txn_date,
 class ConnectIpsTokenView(APIView):
     def post(self, request):
         try:
-            body = request.data
+            tenant_header = request.headers.get("Tenant-Header")
+            if not tenant_header:
+                return Response({"error": "Tenant-Header not provided"}, status=400)
+
+            # Using first config (assumed shared across tenants for now)
             config = CipsPayment.objects.first()
             if not config:
                 return Response({"error": "ConnectIPS configuration not found"}, status=404)
 
-            pfx_path = os.path.join(settings.MEDIA_ROOT, "CREDITOR.pfx")
+            # Construct tenant-specific PFX path
+            pfx_path = os.path.join(settings.MEDIA_ROOT, f"CREDITOR_{tenant_header}.pfx")
             if not os.path.exists(pfx_path):
-                return Response({"error": "PFX certificate not found"}, status=404)
+                return Response({"error": f"PFX certificate not found for tenant: {tenant_header}"}, status=404)
+
+            body = request.data
 
             token = generate_connectips_token(
                 merchant_id=config.merchant_id,
@@ -129,14 +136,17 @@ class ConnectIpsTokenView(APIView):
 
             return Response({
                 "TOKEN": token,
-                "gateway_url":config.gateway_url,
+                "gateway_url": config.gateway_url,
                 "merchant_id": config.merchant_id,
                 "app_id": config.app_id,
                 "app_name": config.app_name,
+                "tenant": tenant_header,
+                "pfx_used": os.path.basename(pfx_path)
             })
 
         except Exception as e:
             return Response({"error": str(e)}, status=400)
+
 
 
 class UploadCreditorPfxView(APIView):
@@ -146,9 +156,10 @@ class UploadCreditorPfxView(APIView):
             if not tenant_header:
                 return Response({"error": "Tenant-Header not provided"}, status=400)
 
-            config = CipsPayment.objects.first()
+            # Fetch configuration for the specific tenant
+            config = CipsPayment.objects.first()  # Adjust this if needed for tenant filtering
             if not config:
-                return Response({"error": "ConnectIPS configuration not found"}, status=404)
+                return Response({"error": "ConnectIPS configuration not found for tenant"}, status=404)
 
             file = request.FILES.get("file")
             if not file:
@@ -158,13 +169,15 @@ class UploadCreditorPfxView(APIView):
             if not file.name.lower().endswith('.pfx'):
                 return Response({"error": "Only .pfx files are allowed"}, status=400)
 
+            # Directly use tenant_header in the filename
+            file_name = f"CREDITOR_{tenant_header}.pfx"
+            file_path = os.path.join(settings.MEDIA_ROOT, file_name)
 
-            path = os.path.join(settings.MEDIA_ROOT, "CREDITOR.pfx")
-            with open(path, 'wb') as f:
+            with open(file_path, 'wb') as f:
                 for chunk in file.chunks():
                     f.write(chunk)
 
-            config.creditor_pfx_file = path
+            config.creditor_pfx_file = file_path
             config.save()
 
             return Response({"message": "PFX uploaded successfully"}, status=200)
@@ -234,19 +247,28 @@ class ConnectIpsSuccessUrl(BaseCallback):
         if error:
             return error
 
+        tenant_header = request.headers.get("Tenant-Header")
+        if not tenant_header:
+            return Response({"error": "Tenant-Header not provided"}, status=400)
+
         config = CipsPayment.objects.first()
         if not config:
             return Response({"error": "ConnectIPS configuration not found"}, status=404)
 
-        pfx_path = os.path.join(settings.MEDIA_ROOT, "CREDITOR.pfx")
+        pfx_path = os.path.join(settings.MEDIA_ROOT, f"CREDITOR_{tenant_header}.pfx")
         if not os.path.exists(pfx_path):
-            return Response({"error": "PFX file not found"}, status=404)
+            return Response({"error": f"PFX file not found for tenant: {tenant_header}"}, status=404)
 
         try:
             result = self.validate_payment(txn_id, txn_amt, config, pfx_path)
-            return Response({"message": "Transaction validated successfully", "data": result}, status=200)
+            return Response({
+                "message": "Transaction validated successfully",
+                "data": result,
+                "pfx_used": os.path.basename(pfx_path)  # Optional for debugging
+            }, status=200)
         except Exception as e:
             return Response({"error": str(e)}, status=400)
+
 
 
 class ConnectIpsFailureUrl(BaseCallback):
@@ -255,16 +277,24 @@ class ConnectIpsFailureUrl(BaseCallback):
         if error:
             return error
 
+        tenant_header = request.headers.get("Tenant-Header")
+        if not tenant_header:
+            return Response({"error": "Tenant-Header not provided"}, status=400)
+
         config = CipsPayment.objects.first()
         if not config:
             return Response({"error": "ConnectIPS configuration not found"}, status=404)
 
-        pfx_path = os.path.join(settings.MEDIA_ROOT, "CREDITOR.pfx")
+        pfx_path = os.path.join(settings.MEDIA_ROOT, f"CREDITOR_{tenant_header}.pfx")
         if not os.path.exists(pfx_path):
-            return Response({"error": "PFX file not found"}, status=404)
+            return Response({"error": f"PFX file not found for tenant: {tenant_header}"}, status=404)
 
         try:
             result = self.validate_payment(txn_id, txn_amt, config, pfx_path)
-            return Response({"message": "Validation attempted on failure callback", "data": result}, status=200)
+            return Response({
+                "message": "Validation attempted on failure callback",
+                "data": result,
+                "pfx_used": os.path.basename(pfx_path)  # Optional for debugging
+            }, status=200)
         except Exception as e:
             return Response({"error": str(e)}, status=400)
