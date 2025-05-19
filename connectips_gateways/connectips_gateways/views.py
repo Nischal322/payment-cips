@@ -127,7 +127,13 @@ class ConnectIpsTokenView(APIView):
                 pfx_password=config.creditor_password
             )
 
-            return Response({"TOKEN": token})
+            return Response({
+                "TOKEN": token,
+                "gateway_url":config.gateway_url,
+                "merchant_id": config.merchant_id,
+                "app_id": config.app_id,
+                "app_name": config.app_name,
+            })
 
         except Exception as e:
             return Response({"error": str(e)}, status=400)
