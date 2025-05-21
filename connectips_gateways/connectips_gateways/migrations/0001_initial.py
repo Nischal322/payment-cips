@@ -14,7 +14,6 @@ class Migration(migrations.Migration):
             name='CipsPayment',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('tenant_header', models.CharField(max_length=255, unique=True)),
                 ('gateway_url', models.CharField(max_length=255)),
                 ('merchant_id', models.CharField(max_length=255)),
                 ('app_id', models.CharField(max_length=255)),

@@ -36,13 +36,40 @@ class ConnectIpsPaymentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        serializer = self.get_serializer(data=request.data)
+        # Validate PFX file
+        file = request.FILES.get("file")
+        if not file:
+            return Response({"error": "No file uploaded"}, status=400)
+
+        if not file.name.lower().endswith('.pfx'):
+            return Response({"error": "Only .pfx files are allowed"}, status=400)
+
+        # Validate and save serialized CipsPayment data
+        serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            instance = serializer.save()
+
+            # Save the PFX file
+            tenant_header = request.headers.get('Tenant-Header')
+            if not tenant_header:
+                return Response({"error": "Tenant-Header not provided"}, status=400)
+
+            file_name = f"CREDITOR_{tenant_header}.pfx"
+            file_path = os.path.join(settings.MEDIA_ROOT, file_name)
+
+            with open(file_path, 'wb') as f:
+                for chunk in file.chunks():
+                    f.write(chunk)
+
+            # Save file path to the instance
+            instance.creditor_pfx_file = file_path
+            instance.save()
+
             return Response(
                 {"message": "Created successfully", "data": serializer.data},
                 status=status.HTTP_201_CREATED
             )
+
         return Response({"errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
     def update(self, request, pk=None):
@@ -53,9 +80,32 @@ class ConnectIpsPaymentViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(payment, data=request.data)
         if serializer.is_valid():
+            file = request.FILES.get("file")
+
+            # If file is provided, validate and store it
+            if file:
+                if not file.name.lower().endswith('.pfx'):
+                    return Response({"error": "Only .pfx files are allowed"}, status=400)
+
+                tenant_header = request.headers.get('Tenant-Header')
+                if not tenant_header:
+                    return Response({"error": "Tenant-Header not provided"}, status=400)
+
+                file_name = f"CREDITOR_{tenant_header}.pfx"
+                file_path = os.path.join(settings.MEDIA_ROOT, file_name)
+
+                with open(file_path, 'wb') as f:
+                    for chunk in file.chunks():
+                        f.write(chunk)
+
+                # Update file path in the instance
+                payment.creditor_pfx_file = file_path
+
             serializer.save()
             return Response({"message": "Updated successfully", "data": serializer.data})
+
         return Response({"errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
 
     def partial_update(self, request, pk=None):
         try:
@@ -65,9 +115,32 @@ class ConnectIpsPaymentViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(payment, data=request.data, partial=True)
         if serializer.is_valid():
+            file = request.FILES.get("file")
+
+            # If file is provided, validate and store it
+            if file:
+                if not file.name.lower().endswith('.pfx'):
+                    return Response({"error": "Only .pfx files are allowed"}, status=400)
+
+                tenant_header = request.headers.get('Tenant-Header')
+                if not tenant_header:
+                    return Response({"error": "Tenant-Header not provided"}, status=400)
+
+                file_name = f"CREDITOR_{tenant_header}.pfx"
+                file_path = os.path.join(settings.MEDIA_ROOT, file_name)
+
+                with open(file_path, 'wb') as f:
+                    for chunk in file.chunks():
+                        f.write(chunk)
+
+                # Update file path in the instance
+                payment.creditor_pfx_file = file_path
+
             serializer.save()
             return Response({"message": "Partially updated successfully", "data": serializer.data})
+
         return Response({"errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 def generate_connectips_token(merchant_id, app_id, app_name, txn_id, txn_date,
