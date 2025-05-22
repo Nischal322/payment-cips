@@ -213,8 +213,14 @@ class ConnectIpsTokenView(APIView):
                 "merchant_id": config.merchant_id,
                 "app_id": config.app_id,
                 "app_name": config.app_name,
-                "tenant": tenant_header,
-                "pfx_used": os.path.basename(pfx_path)
+                "txn_id": body.get("TXNID", ""),
+                "txn_date": body.get("TXNDATE", ""),
+                "txn_currency": body.get("TXNCRNCY", "NPR"),
+                "txn_amount": body.get("TXNAMT", ""),
+                "reference_id": body.get("REFERENCEID", ""),
+                "remarks": body.get("REMARKS", ""),
+                "particulars": body.get("PARTICULARS", ""),
+                "pfx_used": os.path.basename(pfx_path),
             })
 
         except Exception as e:

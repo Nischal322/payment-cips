@@ -10,12 +10,12 @@ pip install connectips-gateway
 
 ## Configuration
 
-1. Add 'connectips_gateways' to your INSTALLED_APPS in settings.py:
+1. Add 'connectips_gateway' to your INSTALLED_APPS in settings.py:
 
 ```python
 INSTALLED_APPS = [
     ...
-    'connectips_gateways',
+    'connectips_gateway',
     ...
 ]
 ```
@@ -25,7 +25,7 @@ INSTALLED_APPS = [
 ```python
 urlpatterns = [
     ...
-    path('connectips/', include('connectips_gateways.urls')),
+    path('connectips/', include('connectips_gateway.urls')),
     ...
 ]
 ```
@@ -36,5 +36,48 @@ urlpatterns = [
 
 ## Usage
 
+### Initialize Payment
+
+```python
+import requests
+
+response = requests.post('http://your-domain/connectips/api/initiate-payment/', {
+    'merchant_id': 'your_merchant_id',
+    'txn_id': 'unique_transaction_id',
+    'txn_amount': 1000,  # Amount in paisa
+    'reference_id': 'your_reference_id',
+    'remarks': 'Payment for order',
+    'particulars': 'Order details'
+})
+
+if response.status_code == 200:
+    token = response.json()['token']
+    # Use the token to redirect to ConnectIPS payment page
+```
+
+### Success/Failure URLs
+
+The package provides built-in success and failure URL handlers:
+
+- Success URL: `/connectips/api/success/`
+- Failure URL: `/connectips/api/failure/`
+
+## API Endpoints
+
+- `POST /connectips/api/initiate-payment/`: Initialize a new payment
+- `GET /connectips/api/success/`: Handle successful payments
+- `GET /connectips/api/failure/`: Handle failed payments
+- `GET/POST /connectips/cipspayment/`: Manage ConnectIPS configurations
+
+## Requirements
+
+- Python >= 3.8
+- Django >= 4.2.7
+- Django REST framework >= 3.14.0
+- cryptography >= 41.0.0
+- pyOpenSSL >= 23.2.0
+- requests >= 2.31.0
+
+## License
 
 MIT License
